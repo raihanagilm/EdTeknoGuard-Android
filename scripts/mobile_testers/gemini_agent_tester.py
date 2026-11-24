@@ -133,6 +133,10 @@ class GeminiAgentTester:
             "all_bugs": [],
             "status": "PASS"
         }
+        report_file = self.output_dir / "report.json"
+        with open(report_file, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2)
+
         self.run_adb(["shell", "monkey", "-p", package, "-c", "android.intent.category.LAUNCHER", "1"])
         time.sleep(3)
 

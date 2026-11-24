@@ -267,11 +267,12 @@ jobs:
               PKG="com.edtekno.guard"
             fi
 
+            echo "Starting Gemini Agent Tester for ${{ matrix.name }} on package $PKG..."
             python scripts/mobile_testers/gemini_agent_tester.py \
               --package "$PKG" \
               --persona "${{ matrix.name }}" \
               --output-dir "reports/${{ matrix.id }}" \
-              --steps ${{ inputs.steps || '5' }}
+              --steps 5
 
       - name: Upload Device Test Artifacts
         if: always()
