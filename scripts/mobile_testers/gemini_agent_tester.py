@@ -95,7 +95,7 @@ class GeminiAgentTester:
         with open(image_path, "rb") as f:
             img_bytes = f.read()
 
-        candidate_models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"]
+        candidate_models = ["gemini-3.8-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
         last_error = ""
 
         for model_name in candidate_models:
