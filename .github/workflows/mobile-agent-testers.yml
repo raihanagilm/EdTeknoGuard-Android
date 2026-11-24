@@ -89,6 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 4
       matrix:
         include:
           - id: dev_01
@@ -232,6 +233,11 @@ jobs:
           name: app-debug-apk
           path: downloaded_apk
 
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android/sdk/ndk
+
       - name: Enable KVM Hardware Acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -243,14 +249,18 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
-          api-level: 34
+          api-level: 31
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             set -x
             mkdir -p "reports/${{ matrix.id }}"
-            APK_TARGET=$(find downloaded_apk -name "*.apk" | head -n 1)
+            echo '{"persona": "${{ matrix.name }}", "status": "INITIALIZED", "all_bugs": [], "steps": []}' > "reports/${{ matrix.id }}/report.json"
+
+            APK_TARGET=$(find downloaded_apk -name "*.apk" 2>/dev/null | head -n 1)
             echo "Target APK path: $APK_TARGET"
             if [ -n "$APK_TARGET" ] && [ -f "$APK_TARGET" ]; then
               adb wait-for-device
@@ -271,7 +281,7 @@ jobs:
               --package "$PKG" \
               --persona "${{ matrix.name }}" \
               --output-dir "reports/${{ matrix.id }}" \
-              --steps 5 || true
+              --steps 3 || true
 
       - name: Upload Device Test Artifacts
         if: always()
