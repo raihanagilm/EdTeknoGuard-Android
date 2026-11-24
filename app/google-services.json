@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "750397504359",
+    "project_id": "teknoguard-testing",
+    "storage_bucket": "teknoguard-testing.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:750397504359:android:b7b99ed9d6b86ab72ccdc2",
+        "android_client_info": {
+          "package_name": "com.edtekno.guard"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVwwU6xBovmXjdxOoh1ucc7909RBUFcpo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:750397504359:android:a4f7f0f241d8e32a2ccdc2",
+        "android_client_info": {
+          "package_name": "com.edtekno.mytekno"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVwwU6xBovmXjdxOoh1ucc7909RBUFcpo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
