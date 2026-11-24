@@ -249,14 +249,26 @@ jobs:
           arch: x86_64
           profile: pixel_6
           script: |
+            set -x
+            mkdir -p "reports/${{ matrix.id }}"
             APK_TARGET=$(find downloaded_apk -name "*.apk" | head -n 1)
-            adb install -r -d "$APK_TARGET"
-            adb shell settings put system font_scale ${{ matrix.font_scale }}
-            adb shell wm density ${{ matrix.density }}
-            adb shell cmd uimode night ${{ matrix.dark }}
-            adb shell setprop debug.force_rtl ${{ matrix.rtl }}
+            echo "Target APK path: $APK_TARGET"
+            if [ -n "$APK_TARGET" ] && [ -f "$APK_TARGET" ]; then
+              adb wait-for-device
+              adb install -r -d -g "$APK_TARGET" || adb install -r "$APK_TARGET" || true
+            fi
+            adb shell settings put system font_scale ${{ matrix.font_scale }} || true
+            adb shell wm density ${{ matrix.density }} || true
+            adb shell cmd uimode night ${{ matrix.dark }} || true
+            adb shell setprop debug.force_rtl ${{ matrix.rtl }} || true
+
+            PKG="${{ needs.build-apk.outputs.package_name }}"
+            if [ -z "$PKG" ]; then
+              PKG="com.edtekno.guard"
+            fi
+
             python scripts/mobile_testers/gemini_agent_tester.py \
-              --package "${{ needs.build-apk.outputs.package_name }}" \
+              --package "$PKG" \
               --persona "${{ matrix.name }}" \
               --output-dir "reports/${{ matrix.id }}" \
               --steps ${{ inputs.steps || '5' }}

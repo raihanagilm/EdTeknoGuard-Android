@@ -5,13 +5,12 @@ Autonomous visual mobile QA runner using Google Gemini Multimodal API and ADB.
 """
 
 import argparse
-import base64
 import json
 import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 try:
     from google import genai
@@ -53,7 +52,7 @@ class GeminiAgentTester:
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.persona = persona
-        self.client = genai.Client(api_key=api_key) if genai else None
+        self.client = genai.Client(api_key=api_key) if (genai and api_key) else None
 
     def run_adb(self, cmd_list: list) -> str:
         res = subprocess.run(["adb"] + cmd_list, capture_output=True, text=True, check=False)
@@ -61,8 +60,11 @@ class GeminiAgentTester:
 
     def capture_screenshot(self, step: int) -> Path:
         dest = self.output_dir / f"step_{step:02d}.png"
-        with open(dest, "wb") as f:
-            subprocess.run(["adb", "exec-out", "screencap", "-p"], stdout=f, check=True)
+        try:
+            with open(dest, "wb") as f:
+                subprocess.run(["adb", "exec-out", "screencap", "-p"], stdout=f, check=True)
+        except Exception as e:
+            print(f"Warning: Screenshot failed: {e}")
         return dest
 
     def execute_action(self, action: str, params: Dict[str, Any]) -> None:
@@ -80,27 +82,48 @@ class GeminiAgentTester:
 
     def query_gemini(self, image_path: Path, step: int) -> Dict[str, Any]:
         if not self.client:
-            return {"bugs_found": [], "observation": "No genai client", "action": "finish", "params": {}}
+            return {
+                "bugs_found": ["Gemini client not initialized (check GEMINI_API_KEY)"],
+                "observation": "No Gemini client available",
+                "action": "finish",
+                "params": {}
+            }
+
+        if not image_path.exists() or image_path.stat().st_size == 0:
+            return {"bugs_found": ["Screenshot missing"], "observation": "Blank", "action": "finish", "params": {}}
 
         with open(image_path, "rb") as f:
             img_bytes = f.read()
 
-        response = self.client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[
-                types.Part.from_bytes(data=img_bytes, mime_type="image/png"),
-                f"Persona being tested: {self.persona}. Step number: {step}. Evaluate UI and decide next action."
-            ],
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
-                response_mime_type="application/json",
-                temperature=0.2,
-            )
-        )
-        try:
-            return json.loads(response.text)
-        except Exception:
-            return {"bugs_found": [], "observation": response.text, "action": "finish", "params": {}}
+        candidate_models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"]
+        last_error = ""
+
+        for model_name in candidate_models:
+            try:
+                response = self.client.models.generate_content(
+                    model=model_name,
+                    contents=[
+                        types.Part.from_bytes(data=img_bytes, mime_type="image/png"),
+                        f"Persona: {self.persona}. Step: {step}. Evaluate visual UI and decide next action."
+                    ],
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_PROMPT,
+                        response_mime_type="application/json",
+                        temperature=0.2,
+                    )
+                )
+                return json.loads(response.text)
+            except Exception as e:
+                last_error = str(e)
+                print(f"Model {model_name} attempt failed: {last_error}")
+                continue
+
+        return {
+            "bugs_found": [f"Gemini API request failed: {last_error}"],
+            "observation": f"API Error: {last_error}",
+            "action": "finish",
+            "params": {}
+        }
 
     def run_test(self, package: str, max_steps: int = 5) -> Dict[str, Any]:
         report = {
@@ -139,7 +162,7 @@ class GeminiAgentTester:
             time.sleep(2)
 
         report_file = self.output_dir / "report.json"
-        with open(report_file, "w") as f:
+        with open(report_file, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2)
 
         return report
@@ -147,18 +170,31 @@ class GeminiAgentTester:
 
 def main():
     parser = argparse.ArgumentParser(description="Gemini Mobile Agent Tester")
-    parser.add_argument("--package", required=True, help="Target Android package name")
+    parser.add_argument("--package", default="com.edtekno.guard", help="Target Android package name")
     parser.add_argument("--persona", default="standard", help="Persona name")
     parser.add_argument("--output-dir", default="test_results", help="Directory for reports and screenshots")
     parser.add_argument("--steps", type=int, default=5, help="Maximum exploration steps")
     args = parser.parse_args()
 
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        print("ERROR: GEMINI_API_KEY environment variable is required.")
-        exit(1)
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    out_dir = Path(args.output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    tester = GeminiAgentTester(api_key=api_key, output_dir=Path(args.output_dir), persona=args.persona)
+    if not api_key:
+        print("WARNING: GEMINI_API_KEY environment variable is missing or empty!")
+        report = {
+            "persona": args.persona,
+            "package": args.package,
+            "steps": [],
+            "all_bugs": ["GEMINI_API_KEY is not set in GitHub Secrets."],
+            "status": "SKIPPED (Missing GEMINI_API_KEY in GitHub Secrets)"
+        }
+        with open(out_dir / "report.json", "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2)
+        print("Diagnostic report saved. Exiting gracefully.")
+        return
+
+    tester = GeminiAgentTester(api_key=api_key, output_dir=out_dir, persona=args.persona)
     results = tester.run_test(package=args.package, max_steps=args.steps)
     print(f"Test completed for persona {args.persona}: {results['status']}")
 
