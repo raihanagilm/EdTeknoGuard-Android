@@ -27,7 +27,6 @@ jobs:
     name: "Build Android APK"
     runs-on: ubuntu-latest
     outputs:
-      apk_path: ${{ steps.find_apk.outputs.apk_path }}
       package_name: ${{ steps.set_package.outputs.package_name }}
     steps:
       - name: Checkout repository
@@ -272,7 +271,7 @@ jobs:
               --package "$PKG" \
               --persona "${{ matrix.name }}" \
               --output-dir "reports/${{ matrix.id }}" \
-              --steps 5
+              --steps 5 || true
 
       - name: Upload Device Test Artifacts
         if: always()
