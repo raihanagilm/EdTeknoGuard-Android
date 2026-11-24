@@ -256,44 +256,8 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
-            mkdir -p "reports/${{ matrix.id }}"
-            exec > "reports/${{ matrix.id }}/run.log" 2>&1
-            set -x
-            echo "Starting runner script for ${{ matrix.id }}"
-            which python3 || true
-            which python || true
-            adb devices -l || true
-            echo '{"persona": "${{ matrix.name }}", "status": "INITIALIZED", "all_bugs": [], "steps": []}' > "reports/${{ matrix.id }}/report.json"
-
-            APK_TARGET=$(find downloaded_apk -name "*.apk" 2>/dev/null | head -n 1)
-            echo "Target APK path: $APK_TARGET"
-            if [ -n "$APK_TARGET" ] && [ -f "$APK_TARGET" ]; then
-              adb wait-for-device || true
-              adb install -r -d -g "$APK_TARGET" || adb install -r "$APK_TARGET" || true
-            fi
-            adb shell settings put system font_scale ${{ matrix.font_scale }} || true
-            adb shell wm density ${{ matrix.density }} || true
-            adb shell cmd uimode night ${{ matrix.dark }} || true
-            adb shell setprop debug.force_rtl ${{ matrix.rtl }} || true
-
-            PKG="${{ needs.build-apk.outputs.package_name }}"
-            if [ -z "$PKG" ]; then
-              PKG="com.edtekno.guard"
-            fi
-
-            echo "Starting Gemini Agent Tester for ${{ matrix.name }} on package $PKG..."
-            python3 scripts/mobile_testers/gemini_agent_tester.py \
-              --package "$PKG" \
-              --persona "${{ matrix.name }}" \
-              --output-dir "reports/${{ matrix.id }}" \
-              --steps 3 || python scripts/mobile_testers/gemini_agent_tester.py \
-              --package "$PKG" \
-              --persona "${{ matrix.name }}" \
-              --output-dir "reports/${{ matrix.id }}" \
-              --steps 3 || true
-
-            echo "Script completed successfully."
-            exit 0
+            chmod +x scripts/mobile_testers/run_single_device.sh
+            bash scripts/mobile_testers/run_single_device.sh "${{ matrix.id }}" "${{ matrix.name }}" "${{ matrix.font_scale }}" "${{ matrix.density }}" "${{ matrix.dark }}" "${{ matrix.rtl }}" "${{ needs.build-apk.outputs.package_name }}"
 
       - name: Upload Device Test Artifacts
         if: always()
